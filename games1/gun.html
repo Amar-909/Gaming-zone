@@ -1,0 +1,226 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1" />
+<title>Cosmic Scope — Chicken Hunt</title>
+<style>
+  html,body{height:100%;margin:0}
+  body{background:#04050a;color:#eaf2ff;font-family:system-ui,Segoe UI,Roboto,Arial,sans-serif;overflow:hidden}
+  canvas{display:block}
+  #ui{position:fixed;inset:0;pointer-events:none}
+  .hud{position:absolute;left:16px;top:12px;display:flex;gap:12px;align-items:center;font-weight:700;z-index:20}
+  .chip{background:rgba(0,0,0,0.45);border:1px solid rgba(255,255,255,0.06);padding:6px 10px;border-radius:999px}
+  .bottom{position:absolute;left:16px;bottom:12px;display:flex;gap:10px;align-items:center}
+  .btn{pointer-events:auto;appearance:none;border:0;background:linear-gradient(135deg,#9b6bff,#34c6ff);color:#fff;font-weight:800;padding:10px 14px;border-radius:12px;box-shadow:0 8px 20px rgba(0,0,0,.35);cursor:pointer}
+  .ghost{background:transparent;border:1px solid rgba(255,255,255,.12)}
+  .help{position:absolute;right:16px;top:12px;background:linear-gradient(180deg,rgba(6,6,12,0.7),rgba(6,6,12,0.5));border:1px solid rgba(255,255,255,.04);padding:10px 12px;border-radius:12px;max-width:360px;z-index:20}
+  .help kbd{background:#0c1330;border:1px solid rgba(255,255,255,.08);padding:2px 6px;border-radius:6px}
+  .cross{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);pointer-events:none;z-index:25}
+  .cross svg{filter:drop-shadow(0 6px 18px rgba(0,0,0,.6))}
+  footer{position:fixed;right:14px;bottom:12px;color:rgba(255,255,255,.6);font-size:13px}
+</style>
+</head>
+<body>
+<canvas id="canvas"></canvas>
+<div id="ui">
+  <div class="hud">
+    <div class="chip">Score: <span id="score">0</span></div>
+    <div class="chip">Time: <span id="time">60</span>s</div>
+    <div class="chip">Ammo: <span id="ammo">6</span>/<span id="mag">6</span></div>
+  </div>
+  <div class="help">
+    <strong>Cosmic Chicken Hunt</strong><br>
+    Aim with mouse, click to shoot. Scope Zoom = <kbd>Space</kbd>, Reload = <kbd>R</kbd>.
+  </div>
+  <div class="bottom">
+    <button id="start" class="btn">▶ Start</button>
+    <button id="pause" class="btn ghost">⏸ Pause</button>
+    <button id="reset" class="btn ghost">↺ Reset</button>
+  </div>
+</div>
+<div class="cross" aria-hidden="true">
+  <!-- subtle crosshair centered for better aiming when scope off -->
+  <svg width="72" height="72" viewBox="0 0 72 72">
+    <g fill="none" stroke="#a7e3ff" stroke-width="1.6" opacity="0.85">
+      <circle cx="36" cy="36" r="20" stroke-opacity="0.18"/>
+      <path d="M36 16 L36 28 M36 44 L36 56 M16 36 L28 36 M44 36 L56 36" stroke-opacity="0.6" stroke-linecap="round"/>
+    </g>
+  </svg>
+</div>
+<footer>Background: cosmic • Targets: 🐔</footer>
+<script>
+(() => {
+  const canvas = document.getElementById('canvas');
+  const ctx = canvas.getContext('2d', { alpha:true });
+  let W = innerWidth, H = innerHeight; canvas.width=W; canvas.height=H;
+  addEventListener('resize', ()=>{ W=innerWidth; H=innerHeight; canvas.width=W; canvas.height=H; });
+
+  const ui = { score: document.getElementById('score'), time: document.getElementById('time'), ammo: document.getElementById('ammo'), start: document.getElementById('start'), pause: document.getElementById('pause'), reset: document.getElementById('reset'), mag:6 };
+
+  const state = {
+    running:false, paused:false, score:0, time:60, ammo:6, mag:6, targets:[], bullets:[], particles:[], mouse:{x:W/2,y:H/2}, scopeZoom:1, scoped:false, lastShot:0, fireDelay:140
+  };
+
+  // Create starfield (parallax layers)
+  const layers = [];
+  function makeStars(){
+    layers.length=0;
+    for(let i=0;i<3;i++){
+      const stars = [];
+      const count = [120,80,50][i];
+      for(let j=0;j<count;j++) stars.push({x:Math.random()*W, y:Math.random()*H, s:Math.random()*1.6+(i+0.4), z:i+1, drift:Math.random()*0.2-0.1});
+      layers.push(stars);
+    }
+  }
+  makeStars();
+
+  // spawn chicken target with emoji drawn
+  function spawnTarget(){
+    const size = Math.random()*36 + 36;
+    const x = Math.random()*(W-200)+100;
+    const y = Math.random()*(H-200)+60;
+    const vx = (Math.random()-0.5)*1.6;
+    const vy = (Math.random()-0.5)*1.0;
+    const life = 8 + Math.random()*10;
+    state.targets.push({x,y,vx,vy,size,life,age:0,alive:true,hit:false});
+  }
+
+  // audio - simple gunshot using WebAudio
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  const audio = AudioCtx ? new AudioCtx() : null;
+  function gunshot(){
+    if(!audio) return;
+    const o = audio.createOscillator();
+    const g = audio.createGain();
+    o.type = 'square';
+    o.frequency.setValueAtTime(800, audio.currentTime);
+    g.gain.setValueAtTime(0.0001, audio.currentTime);
+    g.gain.exponentialRampToValueAtTime(0.12, audio.currentTime + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime + 0.35);
+    o.connect(g); g.connect(audio.destination); o.start(); o.stop(audio.currentTime+0.36);
+  }
+
+  function hitSound(){
+    if(!audio) return;
+    const o = audio.createOscillator(); const g = audio.createGain(); o.type='sine'; o.frequency.setValueAtTime(1200, audio.currentTime); g.gain.setValueAtTime(0.0001, audio.currentTime); g.gain.exponentialRampToValueAtTime(0.08, audio.currentTime+0.01); g.gain.exponentialRampToValueAtTime(0.0001, audio.currentTime+0.18); o.connect(g); g.connect(audio.destination); o.start(); o.stop(audio.currentTime+0.2);
+  }
+
+  // particles for sparks
+  function spawnParticles(x,y,color,count=14){
+    for(let i=0;i<count;i++) state.particles.push({x,y,vx:(Math.random()-0.5)*4, vy:(Math.random()-0.8)*4, life:300+Math.random()*400, born:performance.now(), color});
+  }
+
+  // bullet tracer
+  function addBullet(x1,y1,x2,y2){ state.bullets.push({x1,y1,x2,y2,life:120, born:performance.now()}); }
+
+  // draw background cosmos
+  function drawBackground(t){
+    // gradient nebula
+    const g = ctx.createLinearGradient(0,0,W,H);
+    g.addColorStop(0,'#020018'); g.addColorStop(0.4,'#081231'); g.addColorStop(1,'#05071a');
+    ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    // subtle glowing nebula blobs
+    const blobs = [ {x:W*0.18,y:H*0.2,r:260,c:'#5b2fe6'}, {x:W*0.8,y:H*0.32,r:200,c:'#1fb7ff'}, {x:W*0.5,y:H*0.74,r:300,c:'#ff6bae'} ];
+    for(const b of blobs){ const rg = ctx.createRadialGradient(b.x,b.y,b.r*0.1,b.x,b.y,b.r); rg.addColorStop(0, b.c+'22'); rg.addColorStop(1, '#0000'); ctx.fillStyle=rg; ctx.fillRect(b.x-b.r, b.y-b.r, b.r*2, b.r*2); }
+    // stars
+    for(let i=0;i<layers.length;i++){
+      const stars = layers[i];
+      ctx.fillStyle = i===0? 'rgba(255,255,255,0.9)' : i===1? 'rgba(200,230,255,0.7)' : 'rgba(170,200,255,0.5)';
+      for(const s of stars) ctx.fillRect(s.x + Math.sin(t*0.0001*s.z)*2, s.y + s.z*0.2, s.s*0.8, s.s*0.8);
+    }
+  }
+
+  function update(dt, now){
+    // move stars slowly
+    for(const layer of layers) for(const s of layer){ s.x += s.drift * (dt*0.03); if(s.x < 0) s.x = W; if(s.x>W) s.x=0; }
+
+    // update targets
+    for(const t of state.targets){ if(!t.alive) continue; t.x += t.vx; t.y += t.vy; t.age += dt/1000; if(t.x<40||t.x>W-40) t.vx *= -1; if(t.y<40||t.y>H-60) t.vy *= -1; if(t.age>t.life) t.alive=false; }
+    state.targets = state.targets.filter(x=>x.alive);
+
+    // bullets fade
+    state.bullets = state.bullets.filter(b => (now - b.born) < b.life);
+    // particles
+    state.particles = state.particles.filter(p => (now - p.born) < p.life);
+    for(const p of state.particles){ p.x += p.vx; p.y += p.vy; p.vy += 0.04; }
+  }
+
+  function draw(now){
+    ctx.clearRect(0,0,W,H);
+    drawBackground(now);
+
+    // draw targets with chicken emoji
+    ctx.textAlign = 'center'; ctx.textBaseline='middle';
+    for(const t of state.targets){ ctx.font = `${t.size}px serif`; ctx.fillText('🐔', t.x, t.y); // small halo
+      ctx.beginPath(); ctx.arc(t.x,t.y, t.size*0.45,0,Math.PI*2); ctx.strokeStyle = 'rgba(255,255,255,0.06)'; ctx.lineWidth=2; ctx.stroke(); }
+
+    // bullets
+    for(const b of state.bullets){ const age = now - b.born; const life = b.life; const a = 1 - age/life; ctx.strokeStyle = `rgba(255,240,160,${a})`; ctx.lineWidth = 2; ctx.beginPath(); ctx.moveTo(b.x1,b.y1); ctx.lineTo(b.x2,b.y2); ctx.stroke(); }
+
+    // particles
+    for(const p of state.particles){ const a = 1 - (now - p.born)/p.life; ctx.fillStyle = `rgba(255,${120},${60},${a})`; ctx.fillRect(p.x, p.y, 2,2); }
+
+    // HUD scope overlay when scoped
+    if(state.scoped){ const r = 160; const x = state.mouse.x, y = state.mouse.y; ctx.save(); ctx.fillStyle = 'rgba(0,0,0,0.6)'; ctx.fillRect(0,0,W,H); ctx.globalCompositeOperation='destination-out'; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.fill(); ctx.globalCompositeOperation='source-over'; ctx.strokeStyle='#7fffd4'; ctx.lineWidth=2; ctx.beginPath(); ctx.arc(x,y,r,0,Math.PI*2); ctx.stroke(); ctx.restore(); }
+
+    // muzzle on bottom-right
+    const gx = W*0.62, gy = H - 90;
+    // gun silhouette
+    ctx.save(); ctx.translate(gx, gy); ctx.scale(1.02,1.02);
+    ctx.fillStyle = '#1b2034'; ctx.fillRect(0,10,160,24); ctx.fillStyle='#2a324f'; ctx.fillRect(120,0,14,34); ctx.fillStyle='#3f4a78'; ctx.fillRect(160,12,60,10);
+    ctx.restore();
+
+    // small HUD text on canvas
+    ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.font='12px system-ui'; ctx.fillText('Cosmic Zone', W-100, 30);
+  }
+
+  let last = performance.now();
+  function loop(now){ const dt = now - last; last = now; if(state.running && !state.paused) update(dt, now); draw(now); requestAnimationFrame(loop); }
+  requestAnimationFrame(loop);
+
+  // game timer
+  let timerId=null;
+  function startTimer(){ if(timerId) clearInterval(timerId); timerId = setInterval(()=>{ if(!state.running || state.paused) return; state.time = Math.max(0, state.time-1); ui.time.textContent = state.time; if(state.time===0){ state.running=false; alert('Time up! Score: '+state.score); } },1000); }
+
+  // shooting logic
+  function attemptShoot(){ const now = performance.now(); if(now - state.lastShot < state.fireDelay) return; state.lastShot = now; if(state.ammo<=0){ // dry
+      spawnParticles(state.mouse.x, state.mouse.y, '#ffffff',6); return; }
+    state.ammo--; ui.ammo.textContent = state.ammo;
+    gunshot(); // sound
+    // tracer from gun muzzle to mouse
+    const muzzleX = W*0.62 + 200, muzzleY = H - 60; addBullet(muzzleX, muzzleY, state.mouse.x, state.mouse.y);
+    // recoil effect: small camera shake
+    const rx = (Math.random()-0.5)*6; const ry = (Math.random()-0.5)*4; // apply to mouse? we'll offset stars slightly on draw implicitly
+
+    // check hits
+    let hit=false;
+    for(const t of state.targets){ const dx = state.mouse.x - t.x; const dy = state.mouse.y - t.y; if(dx*dx + dy*dy <= (t.size*0.5)*(t.size*0.5)){ // hit
+        hit=true; t.alive=false; state.score += 10; state.targets = state.targets.filter(x=>x.alive); spawnParticles(t.x,t.y,'#ff6b6b',18); hitSound(); }
+    }
+    if(!hit){ state.score = Math.max(0, state.score - 1); }
+    ui.score.textContent = state.score; }
+
+  // input
+  canvas.addEventListener('mousemove', (e)=>{ const r = canvas.getBoundingClientRect(); state.mouse.x = e.clientX - r.left; state.mouse.y = e.clientY - r.top; });
+  canvas.addEventListener('mousedown', (e)=>{ if(state.running && !state.paused && e.button===0) attemptShoot(); });
+  addEventListener('keydown', (e)=>{ if(e.code==='KeyR'){ state.ammo = state.mag; ui.ammo.textContent = state.ammo; } if(e.code==='Space'){ state.scoped = !state.scoped; } if(e.code==='KeyP'){ state.paused = !state.paused; } });
+
+  // buttons
+  ui.start.addEventListener('click', ()=>{ if(!state.running){ state.running=true; state.paused=false; startTimer(); } });
+  ui.pause.addEventListener('click', ()=>{ state.paused = !state.paused; });
+  ui.reset.addEventListener('click', ()=>{ state.running=false; state.paused=false; state.score=0; state.time=60; state.ammo=state.mag; state.targets=[]; ui.score.textContent='0'; ui.time.textContent='60'; ui.ammo.textContent=state.ammo; });
+
+  // periodic spawning
+  setInterval(()=>{ if(state.running && !state.paused && state.targets.length < 6) spawnTarget(); }, 900);
+
+  // initial UI
+  ui.score.textContent = state.score; ui.time.textContent = state.time; ui.ammo.textContent = state.ammo;
+
+  // encourage desktop audio resume by user gesture
+  document.addEventListener('click', ()=>{ if(audio && audio.state === 'suspended') audio.resume(); }, { once:true });
+
+})();
+</script>
+</body>
+</html>
