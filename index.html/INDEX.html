@@ -1,0 +1,243 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>GAMING ZONE — Combined</title>
+<style>
+  :root{--bg1:#020318;--bg2:#000a1a;--accent:#0fb7e6;--panel:#061226}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:radial-gradient(1200px 600px at 10% 10%, rgba(15,183,230,0.04), transparent), linear-gradient(180deg,var(--bg1),var(--bg2));color:#eaf6ff}
+  .wrap{max-width:1100px;margin:22px auto;padding:18px}
+  header{display:flex;align-items:center;justify-content:space-between;gap:12px}
+  h1{margin:0;font-size:34px;color:var(--accent);text-shadow:0 8px 30px rgba(11,183,230,0.06)}
+  .subtitle{color:rgba(234,246,255,.6);font-size:13px}
+
+  .top-btn{background:linear-gradient(90deg,#061b2a,#004055);border:2px solid #09f;padding:8px 12px;border-radius:8px;color:#cff;cursor:pointer;font-weight:800;box-shadow:0 6px 20px rgba(0,160,218,0.07)}
+  .top-btn:hover{box-shadow:0 10px 30px rgba(15,183,230,0.18);transform:translateY(-1px)}
+
+  .card{background:linear-gradient(180deg, rgba(255,255,255,0.02), rgba(255,255,255,0.01)); border:1px solid rgba(255,255,255,0.03); padding:14px; border-radius:10px; margin-top:14px}
+  .form-grid{display:grid;grid-template-columns:1fr 1fr;gap:12px}
+  label{display:block;font-weight:600;margin-bottom:6px;color:rgba(234,246,255,.9)}
+  input[type=text], input[type=email], input[type=password]{width:100%;padding:10px;border-radius:8px;border:1px solid rgba(255,255,255,0.06);background:#001224;color:#eaf6ff}
+  .full{grid-column:1/-1}
+  .row{display:flex;gap:8px;align-items:center}
+  .btn{padding:10px 14px;border-radius:8px;border:0;background:linear-gradient(90deg,var(--accent),#19c3ff);color:#001;font-weight:800;cursor:pointer}
+  .btn.ghost{background:transparent;border:1px solid rgba(255,255,255,0.06);color:#eaf6ff}
+  .muted{color:rgba(234,246,255,.6);font-size:13px}
+
+  .game-bar{margin-top:18px;padding:14px;border-radius:12px;border:3px solid rgba(15,183,230,0.18);display:none;box-shadow:0 20px 40px rgba(0,0,0,.6)}
+  .game-link{display:block;padding:12px 16px;border-radius:8px;border:2px solid rgba(255,255,255,0.04);text-decoration:none;color:#eaf6ff;background:transparent;margin:8px 0;font-size:18px}
+  .game-link:hover{background:rgba(15,183,230,0.06);border-color:rgba(15,183,230,0.28);box-shadow:0 8px 24px rgba(15,183,230,0.06)}
+
+  footer{margin-top:22px;color:rgba(234,246,255,.6);font-size:13px;text-align:center}
+
+  .modal{position:fixed;inset:0;display:none;align-items:center;justify-content:center;background:rgba(0,0,0,0.7);z-index:60}
+  .modal .panel{width:92%;max-width:980px;background:var(--panel);padding:16px;border-radius:12px;border:1px solid rgba(255,255,255,0.04);box-shadow:0 20px 40px rgba(0,0,0,.6);color:#eaf6ff}
+  table{width:100%;border-collapse:collapse;margin-top:12px}
+  th,td{padding:8px;border-bottom:1px solid rgba(255,255,255,0.04);font-size:14px;text-align:left}
+  th{color:var(--accent);font-weight:700}
+  .small{font-size:13px;color:rgba(234,246,255,.7)}
+
+  @media (max-width:720px){.form-grid{grid-template-columns:1fr}.game-link{font-size:16px}}
+</style>
+</head>
+<body>
+  <div class="wrap">
+    <header>
+      <div>
+        <h1>GAMING ZONE</h1>
+        <div class="subtitle">Black & Blue • Cosmic Arcade</div>
+      </div>
+      <div class="row">
+        <button id="topButton" class="top-btn">TOP</button>
+        <button id="openAdminBtn" class="btn ghost">Secret Admin</button>
+      </div>
+    </header>
+
+    <main>
+      <div class="card">
+        <form id="entryForm">
+          <div class="form-grid">
+            <div>
+              <label for="name">Name</label>
+              <input id="name" name="name" type="text" placeholder="Your name" required>
+            </div>
+            <div>
+              <label for="email">Email</label>
+              <input id="email" name="email" type="email" placeholder="yourname@gmail.com" required>
+            </div>
+            <div class="full">
+              <label for="password">Password (or VIP code)</label>
+              <input id="password" name="password" type="password" placeholder="password" required>
+            </div>
+            <div>
+              <label>PLAY AT YOUR OWN RISK</label>
+              <div class="row">
+                <input id="risk" name="risk" type="checkbox" value="YES">
+                <div class="muted">I accept the risk</div>
+              </div>
+            </div>
+            <div class="full" style="display:flex;gap:8px;align-items:center">
+              <button id="submitBtn" class="btn" type="button">Enter & Unlock</button>
+              <button id="clearForm" class="btn ghost" type="button">Clear</button>
+            </div>
+          </div>
+        </form>
+      </div>
+
+      <div class="game-bar" id="gameBar">
+        <a class="game-link" href="hack.html" target="_blank">1. Hack</a>
+        <a class="game-link" href="plane.html" target="_blank">2. Plane’s</a>
+        <a class="game-link" href="ball.html" target="_blank">3. The Ball</a>
+        <a class="game-link" href="maze.html" target="_blank">4. Maze</a>
+        <a class="game-link" href="gun.html" target="_blank">5. Shooting</a>
+      </div>
+    </main>
+
+    <footer>
+      DEVELOPERS-GR gamers | PLAY AT YOUR OWN RISK! | © All rights reserved
+    </footer>
+  </div>
+
+  <div id="adminModal" class="modal" aria-hidden="true">
+    <div class="panel">
+      <div style="display:flex;justify-content:space-between;align-items:center">
+        <div>
+          <strong style="font-size:18px">Secret Admin</strong>
+          <div class="small">Enter master password to view stored logins</div>
+        </div>
+        <div><button id="closeAdmin" class="btn ghost">Close</button></div>
+      </div>
+      <div style="margin-top:12px">
+        <label for="masterPass">Master password</label>
+        <input id="masterPass" type="password" style="width:280px;padding:8px;border-radius:6px;border:1px solid rgba(255,255,255,0.04);background:#001224;color:#eaf6ff">
+        <button id="submitMaster" class="btn" style="margin-left:8px">Unlock</button>
+        <button id="eraseBtn" class="btn ghost" style="margin-left:8px">Erase Memory</button>
+        <div id="adminMsg" class="small" style="margin-top:8px;color:#ffd7d7"></div>
+      </div>
+      <hr style="margin:14px 0;border-color:rgba(255,255,255,0.03)">
+      <div id="adminContent" style="display:none">
+        <div style="display:flex;gap:10px;align-items:center">
+          <div class="small">Wrong password attempts: <strong id="wrongCount">0</strong></div>
+          <button id="exportBtn" class="btn ghost">Export CSV</button>
+        </div>
+        <div id="failedList" style="margin-top:10px" class="small"></div>
+        <table id="logTable" style="margin-top:12px">
+          <thead><tr><th>#</th><th>Name</th><th>Email</th><th>Password</th><th>Risk</th><th>Saved At</th></tr></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+    </div>
+  </div>
+
+<script>
+const MASTER_PASSWORD = '101212';
+const VIP_PASSWORD = '909';
+const LS_LOGINS = 'gz_logins';
+const LS_WRONG_COUNT = 'gz_wrong_attempts';
+const LS_WRONG_LIST = 'gz_wrong_list';
+
+function loadLogins(){try{return JSON.parse(localStorage.getItem(LS_LOGINS)||'[]');}catch(e){return[];}}
+function saveLogins(arr){localStorage.setItem(LS_LOGINS, JSON.stringify(arr));}
+function loadWrongCount(){return parseInt(localStorage.getItem(LS_WRONG_COUNT)||'0',10);}
+function incWrongCount(){const n=loadWrongCount()+1;localStorage.setItem(LS_WRONG_COUNT,String(n));const list=loadWrongList();list.push(new Date().toLocaleString());localStorage.setItem(LS_WRONG_LIST, JSON.stringify(list));return n;}
+function loadWrongList(){try{return JSON.parse(localStorage.getItem(LS_WRONG_LIST)||'[]');}catch(e){return[];}}
+function resetWrong(){localStorage.setItem(LS_WRONG_COUNT,'0');localStorage.removeItem(LS_WRONG_LIST);}
+
+const entryForm=document.getElementById('entryForm');
+const gameBar=document.getElementById('gameBar');
+const submitBtn=document.getElementById('submitBtn');
+const clearFormBtn=document.getElementById('clearForm');
+const topButton=document.getElementById('topButton');
+const openAdminBtn=document.getElementById('openAdminBtn');
+const adminModal=document.getElementById('adminModal');
+const closeAdmin=document.getElementById('closeAdmin');
+const submitMaster=document.getElementById('submitMaster');
+const eraseBtn=document.getElementById('eraseBtn');
+const masterPass=document.getElementById('masterPass');
+const adminMsg=document.getElementById('adminMsg');
+const adminContent=document.getElementById('adminContent');
+const wrongCountEl=document.getElementById('wrongCount');
+const logTableBody=document.querySelector('#logTable tbody');
+const exportBtn=document.getElementById('exportBtn');
+const failedListDiv=document.getElementById('failedList');
+
+function escapeHtml(s){return String(s).replace(/[&<>'"]/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','\'':'&#39;','"':'&quot;'}[c]||c));}
+
+// clear form
+clearFormBtn.addEventListener('click',()=>{entryForm.reset();});
+
+// submit
+submitBtn.addEventListener('click',()=>{
+  const name=entryForm.name.value.trim();
+  const email=entryForm.email.value.trim();
+  const password=entryForm.password.value;
+  const risk=entryForm.risk.checked;
+
+  if(!name||!email||!password||!risk){alert('Fill all fields and accept risk');return;}
+  if(!email.endsWith('@gmail.com')){alert('Please enter a valid Gmail address');return;}
+
+  const arr=loadLogins();
+  arr.push({name,email,password,risk:'YES',timestamp:new Date().toLocaleString()});
+  saveLogins(arr);
+
+  if(password===VIP_PASSWORD){
+    gameBar.style.display='block';
+    alert('VIP detected — play unlocked!');
+  } else {
+    gameBar.style.display='block';
+    alert('Form accepted — play unlocked.');
+  }
+});
+
+// admin modal
+function openAdmin(){adminModal.style.display='flex';adminModal.setAttribute('aria-hidden','false');adminMsg.textContent='';adminContent.style.display='none';masterPass.value='';}
+topButton.addEventListener('click',openAdmin);
+openAdminBtn.addEventListener('click',openAdmin);
+closeAdmin.addEventListener('click',()=>{adminModal.style.display='none';adminModal.setAttribute('aria-hidden','true');});
+
+submitMaster.addEventListener('click',()=>{
+  const val=masterPass.value;
+  if(!val){adminMsg.textContent='Enter master password.';return;}
+  if(val===MASTER_PASSWORD){adminMsg.textContent='';adminContent.style.display='block';populateAdmin();}
+  else{const n=incWrongCount();adminMsg.textContent='Wrong password. Attempts: '+n;populateFailedList();}
+});
+
+eraseBtn.addEventListener('click',()=>{
+  if(confirm('Erase ALL saved memory?')){localStorage.removeItem(LS_LOGINS);resetWrong();populateAdmin();alert('Memory erased');}
+});
+
+function populateAdmin(){
+  const arr=loadLogins();
+  logTableBody.innerHTML='';
+  arr.forEach((it,i)=>{
+    const tr=document.createElement('tr');
+    tr.innerHTML=`<td>${i+1}</td><td>${escapeHtml(it.name)}</td><td>${escapeHtml(it.email)}</td><td>${escapeHtml(it.password)}</td><td>${escapeHtml(it.risk)}</td><td>${escapeHtml(it.timestamp)}</td>`;
+    logTableBody.appendChild(tr);
+  });
+  wrongCountEl.textContent=loadWrongCount();
+  populateFailedList();
+}
+function populateFailedList(){
+  const wl=loadWrongList();
+  if(wl.length){failedListDiv.innerHTML='<strong>Wrong attempts:</strong><br>'+wl.map((t,idx)=>`${idx+1}. ${escapeHtml(t)}`).join('<br>');}
+  else failedListDiv.innerHTML='<em>No wrong attempts recorded.</em>';
+}
+
+// export csv
+exportBtn.addEventListener('click',()=>{
+  const arr=loadLogins();
+  if(!arr.length){alert('No entries');return;}
+  const header=['Name','Email','Password','Risk','SavedAt'];
+  const rows=arr.map(r=>[r.name,r.email,r.password,r.risk,r.timestamp]);
+  const csv=[header,...rows].map(r=>r.map(c=>`"${String(c).replace(/"/g,'""')}"`).join(',')).join('\n');
+  const blob=new Blob([csv],{type:'text/csv'});
+  const url=URL.createObjectURL(blob);
+  const a=document.createElement('a');a.href=url;a.download='gamingzone_logins.csv';document.body.appendChild(a);a.click();a.remove();URL.revokeObjectURL(url);
+});
+
+// click outside modal closes it
+adminModal.addEventListener('click',(e)=>{if(e.target===adminModal){adminModal.style.display='none';adminModal.setAttribute('aria-hidden','true');}});
+</script>
+</body>
+</html>

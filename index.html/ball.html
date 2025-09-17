@@ -1,0 +1,203 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8" />
+<meta name="viewport" content="width=device-width,initial-scale=1" />
+<title>Cosmic Bouncer — Survive the Fall</title>
+<style>
+  :root{--bg1:#020018;--bg2:#091032;--accent:#7c5cff;--hud:#eaf2ff}
+  html,body{height:100%;margin:0;font-family:Inter,system-ui,Segoe UI,Arial,sans-serif;background:radial-gradient(800px 500px at 10% 10%, rgba(124,92,255,.08), transparent), linear-gradient(180deg,var(--bg1),var(--bg2));color:var(--hud);}
+  .wrap{display:grid;place-items:center;height:100vh;padding:20px}
+  canvas{background:transparent;border-radius:12px;box-shadow:0 20px 60px rgba(0,0,0,.6);}
+  .ui{position:fixed;left:20px;top:18px;display:flex;gap:12px;align-items:center}
+  .chip{background:rgba(255,255,255,0.04);padding:8px 12px;border-radius:999px;border:1px solid rgba(255,255,255,0.04);font-weight:700}
+  .controls{position:fixed;right:18px;top:18px;display:flex;gap:10px}
+  button{appearance:none;border:0;padding:10px 14px;border-radius:10px;background:linear-gradient(135deg,var(--accent),#19c3ff);color:white;font-weight:800;cursor:pointer}
+  .muted{opacity:.8;font-size:13px}
+  .centerBox{position:fixed;left:50%;top:10px;transform:translateX(-50%);text-align:center}
+  .message{position:fixed;left:50%;top:50%;transform:translate(-50%,-50%);background:rgba(0,0,0,0.6);padding:20px 26px;border-radius:12px;border:1px solid rgba(255,255,255,0.06);display:none}
+  .message h2{margin:0 0 8px}
+  footer{position:fixed;left:50%;bottom:14px;transform:translateX(-50%);color:rgba(255,255,255,.6);font-size:13px}
+  @media (max-width:720px){canvas{width:360px;height:640px}}</style>
+</head>
+<body>
+<div class="wrap">
+  <canvas id="game" width="720" height="540" role="img" aria-label="Cosmic Bouncer game"></canvas>
+</div>
+<div class="ui">
+  <div class="chip">Time: <span id="time">0.0</span>s</div>
+  <div class="chip">Best: <span id="best">0.0</span>s</div>
+  <div class="chip">Difficulty: <span id="diff">1</span></div>
+</div>
+<div class="controls">
+  <button id="startBtn">Start</button>
+  <button id="pauseBtn">Pause</button>
+  <button id="resetBtn">Reset</button>
+</div>
+<div class="centerBox muted">Move the tile with mouse or touch. Don't let the ball touch the ground.</div>
+<div id="msg" class="message" role="dialog" aria-live="polite">
+  <h2 id="msgTitle">Better luck next time</h2>
+  <p id="msgText">You lasted <strong id="finalTime">0.0</strong> seconds.</p>
+  <div style="display:flex;gap:8px;justify-content:center;margin-top:12px">
+    <button id="replay">Play Again</button>
+    <button id="closeMsg">Close</button>
+  </div>
+</div>
+<footer>Cosmic Bouncer • Survive as long as you can ✨</footer>
+<script>
+(() => {
+  const canvas = document.getElementById('game');
+  const ctx = canvas.getContext('2d');
+  let W = canvas.width, H = canvas.height;
+  const timeEl = document.getElementById('time');
+  const bestEl = document.getElementById('best');
+  const diffEl = document.getElementById('diff');
+  const startBtn = document.getElementById('startBtn');
+  const pauseBtn = document.getElementById('pauseBtn');
+  const resetBtn = document.getElementById('resetBtn');
+  const msg = document.getElementById('msg');
+  const replay = document.getElementById('replay');
+  const closeMsg = document.getElementById('closeMsg');
+  const finalTime = document.getElementById('finalTime');
+
+  // responsive
+  function resize(){
+    const ratio = Math.min(window.innerWidth*0.9 / 720, window.innerHeight*0.85 / 540);
+    const w = Math.floor(720 * ratio);
+    const h = Math.floor(540 * ratio);
+    if(ratio>0.6){ canvas.style.width = w + 'px'; canvas.style.height = h + 'px'; }
+  }
+  addEventListener('resize', resize); resize();
+
+  // game state
+  let running=false, paused=false;
+  let lastTime = 0, elapsed = 0, startTime = 0;
+  let best = parseFloat(localStorage.getItem('cosmic_bouncer_best')||'0');
+  bestEl.textContent = best.toFixed(1);
+
+  // physics & difficulty
+  let gravity = 0.35; // slightly reduced for slower ball
+  let difficulty = 1; // integer difficulty level
+
+  // objects
+  const ball = {x: W/2, y: 80, r: 14, vx: 1.6, vy: 0}; // slower vx
+  const tile = {w: 120, h: 18, x: (W-120)/2, y: H-80, vx:0};
+
+  // stars for cosmic bg
+  const stars = [];
+  for(let i=0;i<140;i++) stars.push({x:Math.random()*W, y:Math.random()*H, s: Math.random()*1.6+0.4, z: Math.random()*1});
+
+  function resetGame(){
+    running=false; paused=false; elapsed=0; gravity=0.35; difficulty=1; diffEl.textContent=difficulty;
+    ball.x = W/2; ball.y = 80; ball.vx = 1.6+Math.random()*0.6; ball.vy = 0; tile.w = 120; tile.x = (W-tile.w)/2;
+    timeEl.textContent = '0.0';
+  }
+
+  function startGame(){ resetGame(); running=true; startTime = performance.now(); lastTime = startTime; requestAnimationFrame(loop); }
+
+  function pauseToggle(){ paused = !paused; if(!paused) { lastTime = performance.now(); requestAnimationFrame(loop); } }
+
+  // difficulty ramp
+  function rampDifficulty(currentSeconds){
+    const step = Math.floor(currentSeconds / 10) + 1;
+    difficulty = Math.min(1 + step - 1, 9);
+    diffEl.textContent = difficulty;
+    gravity = 0.35 + (difficulty-1)*0.05;
+    tile.w = Math.max(40, 120 - (difficulty-1)*8);
+    tile.vx *= 0.98;
+  }
+
+  function drawBackground(){
+    const g = ctx.createLinearGradient(0,0,W,H);
+    g.addColorStop(0,'#020018'); g.addColorStop(1,'#06102a'); ctx.fillStyle = g; ctx.fillRect(0,0,W,H);
+    for(const s of stars){ ctx.fillStyle = `rgba(255,255,255,${0.7*s.z+0.2})`; ctx.fillRect(s.x, s.y, s.s, s.s); }
+    const rg = ctx.createRadialGradient(W*0.8,H*0.2,10,W*0.8,H*0.2,200); rg.addColorStop(0,'rgba(124,92,255,0.07)'); rg.addColorStop(1,'rgba(0,0,0,0)'); ctx.fillStyle=rg; ctx.fillRect(0,0,W,H);
+  }
+
+  function drawObjects(){
+    ctx.fillStyle = 'rgba(255,255,255,0.06)'; ctx.fillRect(tile.x, tile.y, tile.w, tile.h);
+    ctx.strokeStyle = 'rgba(255,255,255,0.14)'; ctx.lineWidth = 1; ctx.strokeRect(tile.x, tile.y, tile.w, tile.h);
+    ctx.fillStyle = 'rgba(124,92,255,0.14)'; ctx.fillRect(tile.x+2, tile.y+2, tile.w-4, tile.h-4);
+
+    const bx = ball.x, by = ball.y;
+    const rg = ctx.createLinearGradient(bx-ball.r, by-ball.r, bx+ball.r, by+ball.r);
+    rg.addColorStop(0,'#fff'); rg.addColorStop(0.2,'#e8f4ff'); rg.addColorStop(1,'#9fb6ff'); ctx.fillStyle = rg;
+    ctx.beginPath(); ctx.arc(bx,by,ball.r,0,Math.PI*2); ctx.fill();
+    ctx.fillStyle = 'rgba(124,92,255,0.06)'; ctx.beginPath(); ctx.arc(bx,by,ball.r*1.8,0,Math.PI*2); ctx.fill();
+  }
+
+  function loop(now){
+    if(!running || paused) return;
+    const dt = (now - lastTime)/16.666;
+    lastTime = now;
+    elapsed = (now - startTime)/1000;
+    timeEl.textContent = elapsed.toFixed(1);
+
+    rampDifficulty(elapsed);
+
+    ball.vy += gravity * dt * 0.6;
+    ball.x += ball.vx * dt;
+    ball.y += ball.vy * dt;
+
+    if(ball.x - ball.r < 8){ ball.x = ball.r + 8; ball.vx *= -0.9; }
+    if(ball.x + ball.r > W-8){ ball.x = W - ball.r - 8; ball.vx *= -0.9; }
+    if(ball.y - ball.r < 8){ ball.y = ball.r + 8; ball.vy *= -0.9; }
+
+    tile.x += tile.vx * dt;
+    tile.x = Math.max(8, Math.min(W - tile.w - 8, tile.x));
+
+    if(ball.y + ball.r >= tile.y && ball.y - ball.r <= tile.y + tile.h){
+      if(ball.x > tile.x && ball.x < tile.x + tile.w){
+        const hitPos = (ball.x - (tile.x + tile.w/2)) / (tile.w/2);
+        ball.vy = -7 - Math.abs(hitPos)*1.8 - (difficulty*0.25);
+        ball.vx += hitPos * 1.6;
+        tile.vx += hitPos * 0.5;
+      }
+    }
+
+    if(ball.y - ball.r > H - 4){ gameOver(); return; }
+
+    for(const s of stars) s.x -= tile.vx * 0.03 * (0.5 + s.z);
+
+    ctx.clearRect(0,0,W,H);
+    drawBackground();
+    drawObjects();
+
+    if(Math.random() < 0.006 + difficulty*0.001) tile.vx += (Math.random()-0.5) * 0.6 * difficulty;
+
+    requestAnimationFrame(loop);
+  }
+
+  function gameOver(){
+    running = false;
+    finalTime.textContent = elapsed.toFixed(1);
+    if(elapsed > best){ best = elapsed; localStorage.setItem('cosmic_bouncer_best', best); bestEl.textContent = best.toFixed(1); }
+    document.getElementById('msgTitle').textContent = 'Better luck next time';
+    document.getElementById('msgText').innerHTML = `You lasted <strong>${elapsed.toFixed(1)}</strong> seconds.`;
+    msg.style.display = 'block';
+  }
+
+  function onPointer(e){ const rect = canvas.getBoundingClientRect(); const x = (e.touches ? e.touches[0].clientX : e.clientX) - rect.left; tile.x = x - tile.w/2; }
+  canvas.addEventListener('mousemove', onPointer);
+  canvas.addEventListener('touchmove', (e)=>{ e.preventDefault(); onPointer(e); }, {passive:false});
+
+  startBtn.addEventListener('click', ()=>{ if(!running) { startGame(); } });
+  pauseBtn.addEventListener('click', ()=>{ if(running) pauseToggle(); else { running=true; lastTime=performance.now(); startTime = performance.now()-elapsed*1000; requestAnimationFrame(loop);} });
+  resetBtn.addEventListener('click', ()=>{ resetGame(); });
+  replay.addEventListener('click', ()=>{ msg.style.display='none'; startGame(); });
+  closeMsg.addEventListener('click', ()=>{ msg.style.display='none'; });
+
+  function startGame(){ resetGame(); running=true; startTime = performance.now(); lastTime = startTime; requestAnimationFrame(loop); }
+
+  addEventListener('keydown', (e)=>{
+    if(e.key === 'ArrowLeft'){ tile.x -= 28; }
+    if(e.key === 'ArrowRight'){ tile.x += 28; }
+    if(e.key === ' ') { if(!running) startGame(); else pauseToggle(); }
+  });
+
+  resetGame();
+  ctx.font='14px system-ui'; ctx.fillStyle='rgba(255,255,255,0.06)'; ctx.fillText('Click START to play', 20, 30);
+})();
+</script>
+</body>
+</html>
