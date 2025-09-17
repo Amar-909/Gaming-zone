@@ -1,0 +1,213 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8" />
+  <title>Hacker Simulator - Amar</title>
+  <style>
+    body {
+      background: black;
+      color: #33ff33;
+      font-family: monospace;
+      margin: 0;
+      padding: 10px;
+      display: flex;
+      flex-direction: row;
+    }
+    #left, #right {
+      width: 50%;
+      height: 100vh;
+      overflow-y: auto;
+      padding: 10px;
+    }
+    #left {
+      border-right: 2px solid #33ff33;
+    }
+    #terminal {
+      white-space: pre-wrap;
+      font-size: 16px;
+    }
+    #input {
+      border: none;
+      background: black;
+      color: #33ff33;
+      font-family: monospace;
+      font-size: 16px;
+      width: 100%;
+      outline: none;
+    }
+    .glitch {
+      color: #0f0;
+      animation: glitch 1s infinite;
+    }
+    @keyframes glitch {
+      0% { text-shadow: 2px 2px red; }
+      25% { text-shadow: -2px -2px blue; }
+      50% { text-shadow: 2px -2px lime; }
+      75% { text-shadow: -2px 2px cyan; }
+      100% { text-shadow: none; }
+    }
+    #hacker {
+      color: red;
+      font-size: 14px;
+    }
+    #passwordForm {
+      display: none;
+      margin-top: 10px;
+    }
+    .dark-mode {
+      background: #001f3f;
+      color: #66ff66;
+    }
+    .error {
+      background: red;
+      color: white;
+      padding: 10px;
+      font-size: 20px;
+      text-align: center;
+    }
+    #replayBtn {
+      display: none;
+      background-color: #33ff33;
+      color: black;
+      font-weight: bold;
+      padding: 8px 16px;
+      margin-top: 10px;
+      border: none;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <audio id="beep" src="https://www.soundjay.com/button/beep-07.mp3" preload="auto"></audio>
+
+  <div id="left">
+    <div id="terminal"></div>
+    <input id="input" autofocus />
+    <div id="passwordForm">
+      🔒 Enter password: <input id="passInput" type="password" /><button onclick="submitPassword()">Submit</button>
+    </div>
+    <button id="replayBtn" onclick="location.reload()">REPLAY</button>
+  </div>
+  <div id="right">
+    <div id="hacker">💻 Hacker is trying to access your PC...</div>
+    <div id="messages"></div>
+  </div>
+
+  <script>
+    const terminal = document.getElementById("terminal");
+    const input = document.getElementById("input");
+    const beep = document.getElementById("beep");
+    const messages = document.getElementById("messages");
+    const passwordForm = document.getElementById("passwordForm");
+    const passInput = document.getElementById("passInput");
+    const replayBtn = document.getElementById("replayBtn");
+
+    let aiUnlocked = false;
+    let attackMode = false;
+    let hackedSequence = false;
+
+    function askUserName() {
+      const answer = prompt("ARE YOU AMAR? (yes/no)");
+      if (answer && answer.trim().toLowerCase() === "yes") {
+        terminal.innerHTML = '<span class="glitch">HELLO AMAR</span>\nType `ok` to begin...';
+      } else {
+        terminal.innerHTML = '<span class="glitch">WHAT A BAD DAY</span>\nType `ok` to begin...';
+      }
+    }
+
+    askUserName();
+
+    function submitPassword() {
+      if (passInput.value === "909") {
+        document.body.classList.add("dark-mode");
+        terminal.innerText += "\n✅ Password Accepted.\nGAME OFF.\n\n🎉 SUCCESS";
+        messages.innerText += "\n💣 FILLING MALWARE...\n💣 Malware signature: APT28-FX009\n📁 Dumping hacker profile...\n🧠 Name: Unknown\n🛠 Tools: Reverse Shell, RAT, Keylogger\n📡 Last Location: Proxy Masked\n📜 Status: NEUTRALIZED";
+        passwordForm.style.display = "none";
+        replayBtn.style.display = "block";
+      } else {
+        document.body.classList.remove("dark-mode");
+        messages.innerHTML = '<div class="error">❌ ACCESS DENIED - FAILED</div>';
+        terminal.innerText += "\n❌ Incorrect Password. HACK FAILED.\nIF YOU WANT TO BE HACKER IN LIFE YOU HAVE ONLY ONE CHANCE";
+        replayBtn.style.display = "block";
+      }
+    }
+
+    const commands = {
+      ok: "MISSION FAILED",
+      "hack server": "[HACKING] Connecting to 192.168.0.1...\n[ACCESS GRANTED] Files downloading...",
+      status: "CPU: 89%\nRAM: 76%\nFIREWALL: OFFLINE",
+      reboot: "Rebooting system...\n...\nSystem back online. Type 'ok'.",
+      nuke: "\n🚨 Initiating NUKE Protocol...\n🚀 Launching in 3... 2... 1...\n💥 BOOM! Systems wiped. Reinitializing...\nSystem back online.",
+      offline: "[ALERT] System under attack!\nType 'attack mode' to defend...",
+      ai: function () {
+        if (!aiUnlocked) {
+          const password = prompt("🔐 Enter AI password:");
+          if (password === "amar909") {
+            aiUnlocked = true;
+            return "🤖 AI Unlocked. You can now use: whoami, bio, system info.";
+          } else {
+            return "❌ Wrong password. Access denied.";
+          }
+        } else {
+          return "🤖 AI already unlocked. Use: whoami, bio, system info.";
+        }
+      },
+      whoami: () => aiUnlocked ? "👤 Name: Amar\n🧠 Role: Hacker Simulator Admin" : "❌ AI is locked. Type 'ai' to unlock.",
+      bio: () => aiUnlocked ? "📚 Student at School\n🎯 Passion: Hacking, Gaming, Creativity" : "❌ AI is locked. Type 'ai' to unlock.",
+      "system info": () => aiUnlocked ? "💻 Device: Virtual Terminal\n🌐 IP: 127.0.0.1\n🔒 Security: High" : "❌ AI is locked. Type 'ai' to unlock.",
+      "attack mode": () => {
+        attackMode = true;
+        return "⚔️ Attack mode activated. Type 'ping909' to counterattack.";
+      },
+      ping909: () => {
+        if (attackMode) {
+          hackedSequence = true;
+          messages.innerText = `📥 Hacking Hacker's PC...\n📁 Accessing files...\n📧 Emails: hacker@mail.com, root@darknet.org\n🔢 Codes: 0923, 7782, 6678\n🔠 Alphas: XZRT, MKLO, AHUE\n📞 Numbers: 1234567890\n\n🚨🚨🚨 HACKED BY APT28 🚨🚨🚨\n🚨🚨🚨 HACKED BY APT28 🚨🚨🚨\n🚨🚨🚨 HACKED BY APT28 🚨🚨🚨\n🚨🚨🚨 HACKED BY APT28 🚨🚨🚨\n🚨🚨🚨 HACKED BY APT28 🚨🚨🚨`;
+          return "[✔] Hacker breached. Messages incoming...";
+        } else {
+          return "❌ Activate attack mode first.";
+        }
+      },
+      shut: () => {
+        if (hackedSequence) {
+          messages.innerText = "";
+          passwordForm.style.display = "block";
+          return "[🔒] Hacker flood blocked. Enter password to unlock system.";
+        } else {
+          return "❌ No active hacker threat.";
+        }
+      }
+    };
+
+    input.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        const cmd = input.value.trim().toLowerCase();
+        input.value = "";
+        terminal.innerText += "\n> " + cmd;
+
+        if (cmd === "clear") {
+          terminal.innerHTML = '<span class="glitch">HELLO AGAIN</span>\nType `ok` to begin...';
+          messages.innerText = "";
+          passwordForm.style.display = "none";
+          replayBtn.style.display = "none";
+          return;
+        }
+
+        if (commands.hasOwnProperty(cmd)) {
+          let result = commands[cmd];
+          if (typeof result === "function") result = result();
+          terminal.innerText += "\n" + result;
+        } else {
+          terminal.innerHTML = '<div class="error">MISSION FAILED - Unknown command detected.\nIF YOU WANT TO BE HACKER IN LIFE YOU HAVE ONLY ONE CHANCE</div>';
+          input.disabled = true;
+          return;
+        }
+
+        beep.currentTime = 0;
+        beep.play();
+        window.scrollTo(0, document.body.scrollHeight);
+      }
+    });
+  </script>
+</body>
+</html>
